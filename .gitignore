@@ -12,13 +12,15 @@ reports/*.jsonl
 reports/*.json
 !reports/drill-1-nodr.jsonl
 !reports/drill-2-withdr.jsonl
+!reports/measure-drill-1.json
+!reports/measure-drill-2.json
 !reports/failover-events.jsonl
 !reports/health-events.jsonl
 !reports/replication.jsonl
 
 # File tam do test/thu nghiem sinh ra (khong phai bang chung)
 reports/_*.jsonl
-reports/runbook-run.jsonl
+!reports/runbook-run.jsonl
 
 # Python
 __pycache__/

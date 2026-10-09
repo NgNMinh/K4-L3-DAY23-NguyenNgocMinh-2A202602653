@@ -26,6 +26,7 @@ PHẢI truyền `--backend bare` tường minh, nếu không nó mặc định `
 trên máy không có Docker daemon (`docker compose ... start` thất bại).
 """
 import argparse
+import csv
 import json
 import os
 import pathlib
@@ -37,7 +38,10 @@ import httpx
 
 EVENTS = pathlib.Path("chaos/chaos-events.jsonl")
 PID_DIR = pathlib.Path("run")
-URL = {"a": "http://127.0.0.1:8001", "b": "http://127.0.0.1:8002"}
+URL = {
+    "a": os.environ.get("REGION_A_URL", "http://127.0.0.1:8001"),
+    "b": os.environ.get("REGION_B_URL", "http://127.0.0.1:8002"),
+}
 
 
 def event(**kw):
@@ -68,6 +72,18 @@ def pid_of(region: str) -> int | None:
     if not f.exists():
         return None
     pid = int(f.read_text().strip())
+    if os.name == "nt":
+        # os.kill(pid, 0) is not a process-existence check on Windows (it raises
+        # WinError 87). Ask tasklist instead, using CSV so localized output works.
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            capture_output=True, text=True, check=False,
+        )
+        try:
+            row = next(csv.reader(result.stdout.splitlines()))
+            return pid if len(row) > 1 and int(row[1]) == pid else None
+        except (StopIteration, ValueError):
+            return None
     try:
         os.kill(pid, 0)
         return pid
@@ -93,10 +109,17 @@ def kill(region: str, mode: str, backend: str, force_both: bool, mock: bool):
         pid = pid_of(region)
         if pid is None:
             raise SystemExit(f"khong tim thay PID cua region-{region} trong {PID_DIR}")
-        # netblock: SIGSTOP -> TCP handshake vẫn xong nhưng không ai trả lời => request TREO
-        #           (đúng hành vi của iptables DROP ở tầng app)
-        # stop    : SIGKILL -> cổng đóng => ConnectError ngay
-        os.kill(pid, signal.SIGSTOP if mode == "netblock" else signal.SIGKILL)
+        if os.name == "nt":
+            if mode == "netblock":
+                raise SystemExit("mode=netblock cần SIGSTOP, không hỗ trợ trên Windows; "
+                                 "dùng --mode stop để mô phỏng process chết.")
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            # netblock: SIGSTOP -> TCP handshake vẫn xong nhưng không ai trả lời => request TREO
+            #           (đúng hành vi của iptables DROP ở tầng app)
+            # stop    : SIGKILL -> cổng đóng => ConnectError ngay
+            os.kill(pid, signal.SIGSTOP if mode == "netblock" else signal.SIGKILL)
     else:
         svc = f"serving-{region}"
         if mode == "stop":

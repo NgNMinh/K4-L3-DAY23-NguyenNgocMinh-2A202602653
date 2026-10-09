@@ -1,0 +1,2 @@
+{"ts": 1791539982.4104297, "iso": "2026-10-09T09:59:42", "action": "kill", "region": "a", "mode": "stop", "backend": "bare", "mock": true, "other_region": "b", "other_alive": true, "forced_both": false, "note": "t_outage_start \u2014 moc 0 cua RTO clock"}
+{"ts": 1791540423.644636, "iso": "2026-10-09T10:07:03", "action": "kill", "region": "a", "mode": "stop", "backend": "bare", "mock": true, "other_region": "b", "other_alive": true, "forced_both": false, "note": "t_outage_start \u2014 moc 0 cua RTO clock"}
